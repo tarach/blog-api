@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Post;
 
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class PostFunctionalTest extends WebTestCase
@@ -17,28 +18,31 @@ class PostFunctionalTest extends WebTestCase
         $this->assertEquals(200, $client->getResponse()->getStatusCode());
     }
 
-    public function testShouldCreatePost(): void
+    public function testShouldCreatePost(KernelBrowser $client = null): string
     {
-        $client = static::createClient();
+        if (!$client) {
+            $client = $this->getAuthenticatedClient();
+        }
 
-        $headers = [
-            'Content-Type' => 'application/json',
-            'Authorization' => 'Basic ' . base64_encode('test:qwe123'),
-        ];
-
-        dump($headers);
-
-        $client->request('POST', '/api/posts', [
-            'headers' => $headers,
-            'json' => [],
+        $content = json_encode([
+            'title' => 'Some title',
+            'body' => '<strong>Some Body</strong>'
         ]);
 
-        dump([
-            'response' => [
-                'status' => $client->getResponse()->getStatusCode(),
-                'body' => $client->getResponse()->getContent(),
-            ],
-        ]);
+        $client->request(
+            'POST',
+            '/api/posts',
+            [],
+            [],
+            [],
+            $content
+        );
+
+        $this->assertEquals(201, $client->getResponse()->getStatusCode());
+
+        $body = json_decode($client->getResponse()->getContent(), true);
+        $this->assertArrayHasKey('id', $body);
+        return $body['id'];
     }
 
     public function testShouldGetOnlyIsPublishedPosts(): void
@@ -51,24 +55,67 @@ class PostFunctionalTest extends WebTestCase
         $this->assertEquals(200, $response->getStatusCode());
 
         $records = json_decode($response->getContent(), true);
-        $published = false;
+        $onlyPublished = true;
         foreach($records as $record) {
             $published = $record['published'] ?? null;
-            if (!$published) {
+            if (false === $published) {
+                $onlyPublished = false;
                 break;
             }
         }
 
-        $this->assertTrue($published);
+        $this->assertTrue($onlyPublished);
     }
 
     public function testShouldUpdatePost(): void
     {
+        $client = $this->getAuthenticatedClient();
+        $id = $this->testShouldCreatePost($client);
 
+        $newTitle = 'New Title';
+        $content = json_encode([
+            'title' => $newTitle,
+        ]);
+
+        $client->request(
+            'PATCH',
+            '/api/posts/' . $id,
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/merge-patch+json',
+            ],
+            $content,
+        );
+
+        $this->assertEquals(200, $client->getResponse()->getStatusCode());
+
+        $response = json_decode($client->getResponse()->getContent(), true);
+
+        $this->assertArrayHasKey('title', $response);
+        $this->assertEquals($newTitle, $response['title']);
     }
 
     public function testShouldDeletePost(): void
     {
+        $client = $this->getAuthenticatedClient();
+        $id = $this->testShouldCreatePost($client);
 
+        $client->request('DELETE', '/api/posts/' . $id);
+
+        $this->assertEquals(204, $client->getResponse()->getStatusCode());
+    }
+
+    private function getAuthenticatedClient(): KernelBrowser
+    {
+        $client = static::createClient(
+        [],
+        [
+            'PHP_AUTH_USER' => 'test',
+            'PHP_AUTH_PW'   => 'qwe123',
+            'CONTENT_TYPE' => 'application/json',
+        ]);
+
+        return $client;
     }
 }

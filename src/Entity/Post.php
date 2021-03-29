@@ -78,4 +78,19 @@ class Post
     {
         return $this->isPublished;
     }
+
+    public function setTitle(?string $title): void
+    {
+        $this->title = $title;
+    }
+
+    public function setBody(?string $body): void
+    {
+        $this->body = $body;
+    }
+
+    public function setIsPublished(bool $isPublished): void
+    {
+        $this->isPublished = $isPublished;
+    }
 }
