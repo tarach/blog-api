@@ -13,5 +13,7 @@ php -S localhost:8000 -t public/
 Navigate to ```http://localhost:8000/api/docs``` to see the API
 ## Tests
 ```shell
-./bin/phpunit
+bin/console --env=test doctrine:schema:update --force \
+  && bin/console --env=test doctrine:fixtures:load -n \
+  && bin/phpunit
 ```
